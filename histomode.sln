@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32630.194
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "histomode", "histomode.vcxproj", "{4D036AF7-C7A0-4172-8D3B-6ADD3D03FE03}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4D036AF7-C7A0-4172-8D3B-6ADD3D03FE03}.Debug|x64.ActiveCfg = Debug|x64
+		{4D036AF7-C7A0-4172-8D3B-6ADD3D03FE03}.Debug|x64.Build.0 = Debug|x64
+		{4D036AF7-C7A0-4172-8D3B-6ADD3D03FE03}.Release|x64.ActiveCfg = Release|x64
+		{4D036AF7-C7A0-4172-8D3B-6ADD3D03FE03}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {36857966-6F28-4B08-A0A8-64C2D22CDEBC}
+	EndGlobalSection
+EndGlobal
