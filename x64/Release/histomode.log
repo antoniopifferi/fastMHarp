@@ -1,0 +1,13 @@
+﻿  histomode.c
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(290,17): warning C4047: 'function': 'unsigned int *' differs in levels of indirection from 'unsigned int [16][4096]'
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(290,17): warning C4024: 'MH_GetAllHistograms': different types for formal and actual parameter 2
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(127,12): warning C4101: 'Integralcount': unreferenced local variable
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(128,12): warning C4101: 'j': unreferenced local variable
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(73,34): warning C4101: 't_end': unreferenced local variable
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(73,25): warning C4101: 't_start': unreferenced local variable
+  Generating code
+  2 of 6 functions (33.3%) were compiled, the rest were copied from previous compilation.
+    1 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  histomode.vcxproj -> C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\x64\Release\histomode.exe

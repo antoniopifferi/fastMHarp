@@ -1,2 +1,3 @@
 ﻿  histomode.c
-  histomode.vcxproj -> C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMultiHarp\x64\Debug\histomode.exe
+C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\histomode.c(128,12): warning C4101: 'Integralcount': unreferenced local variable
+  histomode.vcxproj -> C:\OD\OneDrive - Politecnico di Milano\Beta\Programs\fastMultiHarp\fastMHarp\x64\Debug\histomode.exe

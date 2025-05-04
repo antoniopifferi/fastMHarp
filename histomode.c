@@ -37,7 +37,19 @@
 #include "errorcodes.h"
 
 
-unsigned int counts[MAXINPCHAN][MAXHISTLEN];
+#define NUMDET 16
+#define NUMBIN 4096
+#define NUMREP 100
+#define ACQTIME 100 // in ms
+#define FILEDATA "FileData.dat"
+#define FILETIME "FileTime.txt"
+#define HEADLEN	256
+
+
+unsigned int counts[NUMDET][NUMBIN];
+
+//AP initialise memory for histogram
+//unsigned int** counts; // counts[rep] -> flat array of [NUMDET * NUMBIN]
 
 // helper macro and associated function for API calls with error check
 // the stringize operator # makes a printable string from the macro's input argument
@@ -56,9 +68,38 @@ int doapicall(int retcode, char* callstr, int line)
 
 int main(int argc, char* argv[])
 {
+
+    //AP: for timing
+    LARGE_INTEGER freq, t_start, t_end;
+    QueryPerformanceFrequency(&freq); // get frequency once
+    struct Timimg {
+		LARGE_INTEGER start;
+		LARGE_INTEGER end1;
+		LARGE_INTEGER end2;
+		LARGE_INTEGER end3;
+		double delta1;
+	} t;
+ 
+
+	//AP: allocate memory for histogram
+    //counts = (unsigned int**)malloc(NUMREP * sizeof(unsigned int*));
+    //if (counts == NULL) {
+    //    printf("Memory allocation for counts pointers failed.\n");
+    //    return 1;
+    //}
+
+    //for (int r = 0; r < NUMREP; r++) {
+    //    counts[r] = (unsigned int*)malloc(NUMDET * NUMBIN * sizeof(unsigned int));
+    //    if (counts[r] == NULL) {
+    //        printf("Memory allocation for counts[%d] failed.\n", r);
+    //        return 1;
+    //    }
+    //}
+
     int dev[MAXDEVNUM];
     int found = 0;
     FILE* fpout = NULL;
+    FILE* fptime = NULL;
     int retcode;
     int ctcstatus;
     char LIB_Version[8];
@@ -102,11 +143,26 @@ int main(int argc, char* argv[])
     if (strncmp(LIB_Version, LIB_VERSION, sizeof(LIB_VERSION)) != 0)
         printf("\nWarning: The application was built for version %s.", LIB_VERSION);
 
-    if ((fpout = fopen("histomodeout.txt", "w")) == NULL)
-    {
-        printf("\ncannot open output file\n");
-        goto ex;
+    // Init File
+    if ((fptime = fopen(FILETIME, "w")) == NULL) {
+        printf("\ncannot open timing file\n"); goto ex;
     }
+	fprintf(fptime,"Run\tStart\tEnd1\tDelta(ms)\n");
+    if ((fpout = fopen(FILEDATA, "wb")) == NULL){
+        printf("\ncannot open output file\n"); goto ex;
+    }
+    short ver_0 = - 2;
+    short ver_1 = 0;
+    short ver_sub = 1;
+	char subheader = 0;
+	long sizeheader = 256;
+    char zero = 0;
+    fwrite(&ver_0, sizeof(short), 1, fpout);
+    fwrite(&ver_1, sizeof(short), 1, fpout);
+    fwrite(&ver_sub, sizeof(short), 1, fpout);
+    fwrite(&sizeheader, sizeof(long), 1, fpout);
+    fwrite(&zero, sizeof(char), HEADLEN-2-2-2-4, fpout);
+
 
     printf("\nSearching for MultiHarp devices...");
     printf("\nDevidx     Serial     Status");
@@ -133,6 +189,7 @@ int main(int argc, char* argv[])
         }
     }
 
+
     // In this demo we will use the first device we find, i.e. dev[0].
     // You could also use multiple devices in parallel.
     // You can also check for specific serial numbers, so that you know 
@@ -140,8 +197,7 @@ int main(int argc, char* argv[])
 
     if (found < 1)
     {
-        printf("\nNo device available.");
-        goto ex;
+        printf("\nNo device available."); goto ex;
     }
 
     printf("\nUsing device #%1d", dev[0]);
@@ -157,152 +213,105 @@ int main(int argc, char* argv[])
         goto ex;
     }
 
-    if (APICALL(MH_GetHardwareInfo(dev[0], HW_Model, HW_Partno, HW_Version)) < 0)
-        goto ex;
-    else
-        printf("\nFound Model %s Part no %s Version %s", HW_Model, HW_Partno, HW_Version);
-
-    if (APICALL(MH_GetNumOfInputChannels(dev[0], &NumChannels)) < 0)
-        goto ex;
-    else
-        printf("\nDevice has %i input channels.", NumChannels);
-
-    if (APICALL(MH_SetSyncDiv(dev[0], SyncDivider)) < 0)
-        goto ex;
-
-    if (APICALL(MH_SetSyncEdgeTrg(dev[0], SyncTriggerLevel, SyncTiggerEdge)) < 0)
-        goto ex;
-
-    if (APICALL(MH_SetSyncChannelOffset(dev[0], 0)) < 0) // can emulate a cable delay
-        goto ex;
+    if (APICALL(MH_GetHardwareInfo(dev[0], HW_Model, HW_Partno, HW_Version)) < 0) goto ex;
+    else printf("\nFound Model %s Part no %s Version %s", HW_Model, HW_Partno, HW_Version);
+    if (APICALL(MH_GetNumOfInputChannels(dev[0], &NumChannels)) < 0) goto ex;
+    else printf("\nDevice has %i input channels.", NumChannels);
+    if (APICALL(MH_SetSyncDiv(dev[0], SyncDivider)) < 0) goto ex;
+    if (APICALL(MH_SetSyncEdgeTrg(dev[0], SyncTriggerLevel, SyncTiggerEdge)) < 0) goto ex;
+    if (APICALL(MH_SetSyncChannelOffset(dev[0], 0)) < 0) goto ex;
 
     for (i = 0; i < NumChannels; i++) // we use the same input settings for all channels
     {
-        if (APICALL(MH_SetInputEdgeTrg(dev[0], i, InputTriggerLevel, InputTriggerEdge)) < 0)
-            goto ex;
-
-        if (APICALL(MH_SetInputChannelOffset(dev[0], i, 0)) < 0) // can emulate a cable delay
-            goto ex;
-
-        if (APICALL(MH_SetInputChannelEnable(dev[0], i, 1)) < 0)
-            goto ex;
+        if (APICALL(MH_SetInputEdgeTrg(dev[0], i, InputTriggerLevel, InputTriggerEdge)) < 0) goto ex;
+        if (APICALL(MH_SetInputChannelOffset(dev[0], i, 0)) < 0) goto ex;
+        if (APICALL(MH_SetInputChannelEnable(dev[0], i, 1)) < 0) goto ex;
     }
-
-    if (APICALL(MH_SetHistoLen(dev[0], MAXLENCODE, &HistLen)) < 0)
-        goto ex;  
+    
+    int lencode = 0, x = NUMBIN / 1024;
+    while (x >>= 1) ++lencode;
+    if (APICALL(MH_SetHistoLen(dev[0], lencode, &HistLen)) < 0) goto ex;
     printf("\nHistogram length is %d", HistLen);
-
-    if (APICALL(MH_SetBinning(dev[0], Binning)) < 0)
-        goto ex;
-
-    if (APICALL(MH_SetOffset(dev[0], Offset)) < 0)
-        goto ex;
-
-    if (APICALL(MH_GetResolution(dev[0], &Resolution)) < 0)
-        goto ex;
+    if (APICALL(MH_SetBinning(dev[0], Binning)) < 0) goto ex;
+    if (APICALL(MH_SetOffset(dev[0], Offset)) < 0) goto ex;
+    if (APICALL(MH_GetResolution(dev[0], &Resolution)) < 0) goto ex;
     printf("\nResolution is %1.0lfps\n", Resolution);
 
     // after Init allow 150 ms for valid  count rate readings
     // subsequently you get new values after every 100ms
     Sleep(150);
 
-    if (APICALL(MH_GetSyncRate(dev[0], &Syncrate)) < 0)
-        goto ex;
+    if (APICALL(MH_GetSyncRate(dev[0], &Syncrate)) < 0) goto ex;
     printf("\nSyncrate=%1d/s", Syncrate);
 
     for (i = 0; i < NumChannels; i++) // for all channels
     {
-        if (APICALL(MH_GetCountRate(dev[0], i, &Countrate)) < 0)
-            goto ex;
+        if (APICALL(MH_GetCountRate(dev[0], i, &Countrate)) < 0) goto ex;
         printf("\nCountrate[%1d]=%1d/s", i, Countrate);
     }
 
     printf("\n");
 
     // after getting the count rates you can check for warnings
-    if (APICALL(MH_GetWarnings(dev[0], &warnings)) < 0)
-        goto ex;
-
+    if (APICALL(MH_GetWarnings(dev[0], &warnings)) < 0) goto ex;
     if (warnings)
     {
-        if (APICALL(MH_GetWarningsText(dev[0], warningstext, warnings)) < 0)
-            goto ex;
+        if (APICALL(MH_GetWarningsText(dev[0], warningstext, warnings)) < 0) goto ex;
         printf("\n\n%s", warningstext);
     }
 
-    if (APICALL(MH_SetStopOverflow(dev[0], 0, 10000)) < 0) // for example only
-        goto ex;
+    if (APICALL(MH_SetStopOverflow(dev[0], 0, 10000)) < 0) goto ex;
 
     while (cmd != 'q')
     {
-        if (APICALL(MH_ClearHistMem(dev[0])) < 0)
-            goto ex;
-
+        if (APICALL(MH_ClearHistMem(dev[0])) < 0) goto ex;
         printf("\npress RETURN to start measurement");
         getchar();
 
-        if (APICALL(MH_GetSyncRate(dev[0], &Syncrate)) < 0)
-            goto ex;
+        if (APICALL(MH_GetSyncRate(dev[0], &Syncrate)) < 0)goto ex;
         printf("\nSyncrate=%1d/s", Syncrate);
 
         for (i = 0; i < NumChannels; i++) // for all channels
         {
-            if (APICALL(MH_GetCountRate(dev[0], i, &Countrate)) < 0)
-                goto ex;
+            if (APICALL(MH_GetCountRate(dev[0], i, &Countrate)) < 0) goto ex;
             printf("\nCountrate[%1d]=%1d/s", i, Countrate);
         }
 
         // here you could check for warnings again
 
-        if (APICALL(MH_StartMeas(dev[0], Tacq)) < 0)
-            goto ex;
+		//AP: start meas loop
 
-        printf("\n\nMeasuring for %1d milliseconds...", Tacq);
-
-        ctcstatus = 0;
-        while (ctcstatus == 0)
-        {
-            if (APICALL(MH_CTCStatus(dev[0], &ctcstatus)) < 0)
-                goto ex;
+        for (int rep = 0; rep < NUMREP; rep++) {
+            if (APICALL(MH_StartMeas(dev[0], ACQTIME)) < 0) goto ex; //Tacq in ms
+            ctcstatus = 0;
+            while (ctcstatus == 0) if (APICALL(MH_CTCStatus(dev[0], &ctcstatus)) < 0) goto ex;
+            if (APICALL(MH_StopMeas(dev[0])) < 0) goto ex;
+            /*AP*/QueryPerformanceCounter(&t.start); // Start timing
+            if (APICALL(MH_GetAllHistograms(dev[0], counts)) < 0) goto ex;
+            /*AP*/QueryPerformanceCounter(&t.end1); // End timing
+            /*AP*/t.delta1 = (double)(t.end1.QuadPart - t.start.QuadPart) * 1000.0 / freq.QuadPart;
+            if (APICALL(MH_GetFlags(dev[0], &flags)) < 0) goto ex;
+            if (flags & FLAG_OVERFLOW) printf("\n  Overflow.");
+            if (APICALL(MH_ClearHistMem(dev[0])) < 0) goto ex;
+            fwrite(counts, sizeof(unsigned int), NUMDET * NUMBIN, fpout); // write binary data to file  
+			fprintf(fptime, "%d\t%lld\t%lld\t%1.0f\n", rep, t.start.QuadPart, t.end1.QuadPart, t.delta1);
         }
-
-        if (APICALL(MH_StopMeas(dev[0])) < 0)
-            goto ex;
-
-        printf("\n");
-        for (i = 0; i < NumChannels; i++) // for all channels
-        {
-            if (APICALL(MH_GetHistogram(dev[0], counts[i], i)) < 0)
-                goto ex;
-
-            Integralcount = 0;
-            for (j = 0; j < HistLen; j++)
-                Integralcount += counts[i][j];
-
-            printf("\n  Integralcount[%1d]=%1.0lf", i, Integralcount);
-        }
-        printf("\n");
-
-        if (APICALL(MH_GetFlags(dev[0], &flags)) < 0)
-            goto ex;
-
-        if (flags & FLAG_OVERFLOW)
-            printf("\n  Overflow.");
 
         printf("\nEnter c to continue or q to quit and save the count data.");
         cmd = getchar();
         getchar();
     }
 
-    for (i = 0; i < NumChannels; i++)
-        fprintf(fpout, "  ch%02d ", i+1);
-    fprintf(fpout, "\n");
-    for (j = 0; j < HistLen; j++)
-    {
-        for (i = 0; i < NumChannels; i++)
-            fprintf(fpout, "%6d ", counts[i][j]);
-        fprintf(fpout, "\n");
-    }
+
+    //for (i = 0; i < NumChannels; i++)
+    //    fprintf(fpout, "  ch%02d ", i+1);
+    //fprintf(fpout, "\n");
+    //for (j = 0; j < HistLen; j++)
+    //{
+    //    for (i = 0; i < NumChannels; i++)
+    //        fprintf(fpout, "%6d ", counts[i][j]);
+    //    fprintf(fpout, "\n");
+    //}
 
 ex:
     for (i = 0; i < MAXDEVNUM; i++) // no harm to close all
@@ -310,6 +319,17 @@ ex:
     
     if (fpout)
         fclose(fpout);
+	if (fptime)
+		fclose(fptime);
+
+
+	//AP: free memory for histogram
+    //for (int r = 0; r < NUMREP; r++) {
+    //    free(counts[r]);
+    //}
+    //free(counts);
+
+
 
     printf("\npress RETURN to exit");
     getchar();
